@@ -1,0 +1,63 @@
+version: "3.8"
+volumes: 
+    mongodata:
+services:
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        restart: always
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        environment:
+            - RABBITMQ_DEFAULT_USER=rmq_user
+            - RABBITMQ_DEFAULT_PASS=rmq_password
+            - RABBITMQ_DEFAULT_VHOST=ws_game
+        healthcheck:
+            test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+            interval: 5s
+            timeout: 30s
+            retries: 5
+
+    commands_service:
+        build: https://github.com/ivanpriz/WSGameCommandService.git#feature/docker
+        command: uvicorn app:app --host 0.0.0.0 --port 5252
+        volumes:
+            - .:/app
+        ports:
+            - 5252:5252
+        environment:
+            - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
+            - USERS_TO_CREATE_QUEUE=CREATE_USERS
+            - USERS_TO_DELETE_QUEUE=DELETE_USERS
+            - RENDER_BOARD_QUEUE=RENDER_BOARD_QUEUE
+            - MESSAGES_QUEUE=MESSAGES_QUEUE
+            - PORT=5252
+        depends_on:
+            - rabbitmq
+        restart: always
+
+    users_service:
+        build: https://github.com/ivanpriz/WSGameUsersService.git#feature/docker
+        volumes:
+            - .:/app
+        environment:
+            - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
+            - USERS_TO_CREATE_QUEUE=CREATE_USERS
+            - USERS_TO_DELETE_QUEUE=DELETE_USERS
+            - USERNAMES_FILE=usernames.txt
+            - COLORS_FILE=colors.txt
+        depends_on:
+            - rabbitmq
+        restart: always
+
+    render_service:
+        build: https://github.com/ivanpriz/WSGameRenderService.git#feature/docker
+        volumes:
+            - .:/app
+        environment:
+            - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
+            - RENDER_BOARD_QUEUE=RENDER_BOARD_QUEUE
+            - MESSAGES_QUEUE=MESSAGES_QUEUE
+        depends_on:
+            - rabbitmq
+        restart: always
