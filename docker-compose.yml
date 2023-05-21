@@ -19,7 +19,7 @@ services:
             retries: 5
 
     commands_service:
-        build: https://github.com/ivanpriz/WSGameCommandService.git#feature/docker
+        build: https://github.com/ivanpriz/WSGameCommandService.git
         command: uvicorn app:app --host 0.0.0.0 --port 5252
         volumes:
             - .:/app
@@ -37,7 +37,7 @@ services:
         restart: always
 
     users_service:
-        build: https://github.com/ivanpriz/WSGameUsersService.git#feature/docker
+        build: https://github.com/ivanpriz/WSGameUsersService.git
         volumes:
             - .:/app
         environment:
@@ -51,7 +51,7 @@ services:
         restart: always
 
     render_service:
-        build: https://github.com/ivanpriz/WSGameRenderService.git#feature/docker
+        build: https://github.com/ivanpriz/WSGameRenderService.git
         volumes:
             - .:/app
         environment:
