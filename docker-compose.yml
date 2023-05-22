@@ -2,6 +2,14 @@ version: "3.8"
 volumes: 
     mongodata:
 services:
+    haproxy:
+        image: haproxy:2.2
+        restart: always
+        ports:
+            - "5252:3005"
+        volumes:
+            - ./haproxy:/usr/local/etc/haproxy
+
     rabbitmq:
         image: rabbitmq:3-management-alpine
         restart: always
@@ -18,26 +26,83 @@ services:
             timeout: 30s
             retries: 5
 
-    commands_service:
-        build: https://github.com/ivanpriz/WSGameCommandService.git
+    redis:
+        image: redislabs/redismod
+        restart: always
+        container_name: redis
+        ports:
+            - '6379:6379'
+        healthcheck:
+            test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+            interval: 5s
+            timeout: 30s
+            retries: 5
+
+    commands_service_0:
+        build: https://github.com/ivanpriz/WSGameCommandService.git#main
         command: uvicorn app:app --host 0.0.0.0 --port 5252
         volumes:
             - .:/app
-        ports:
-            - 5252:5252
         environment:
             - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
             - USERS_TO_CREATE_QUEUE=CREATE_USERS
             - USERS_TO_DELETE_QUEUE=DELETE_USERS
-            - RENDER_BOARD_QUEUE=RENDER_BOARD_QUEUE
-            - MESSAGES_QUEUE=MESSAGES_QUEUE
+            - BOARDS_TO_RENDER_QUEUE=BOARDS_TO_RENDER_QUEUE
+            - RENDERED_BOARDS_EXCHANGE=RENDERED_BOARDS_EXCHANGE
+            - MESSAGES_EXCHANGE=MESSAGES_EXCHANGE
             - PORT=5252
+            - REDIS_TOPIC_NAME=fastapi:messages
+            - REDIS_URL=redis://redis:6379
+            - INSTANCE_ID=0
         depends_on:
             - rabbitmq
+            - redis
+        restart: always
+
+    commands_service_1:
+        build: https://github.com/ivanpriz/WSGameCommandService.git#main
+        command: uvicorn app:app --host 0.0.0.0 --port 5252
+        volumes:
+            - .:/app
+        environment:
+            - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
+            - USERS_TO_CREATE_QUEUE=CREATE_USERS
+            - USERS_TO_DELETE_QUEUE=DELETE_USERS
+            - BOARDS_TO_RENDER_QUEUE=BOARDS_TO_RENDER_QUEUE
+            - RENDERED_BOARDS_EXCHANGE=RENDERED_BOARDS_EXCHANGE
+            - MESSAGES_EXCHANGE=MESSAGES_EXCHANGE
+            - PORT=5252
+            - REDIS_TOPIC_NAME=fastapi:messages
+            - REDIS_URL=redis://redis:6379
+            - INSTANCE_ID=1
+        depends_on:
+            - rabbitmq
+            - redis
+        restart: always
+
+    commands_service_2:
+        build: https://github.com/ivanpriz/WSGameCommandService.git#main
+        command: uvicorn app:app --host 0.0.0.0 --port 5252
+        volumes:
+            - .:/app
+        environment:
+            - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
+            - USERS_TO_CREATE_QUEUE=CREATE_USERS
+            - USERS_TO_DELETE_QUEUE=DELETE_USERS
+            - BOARDS_TO_RENDER_QUEUE=BOARDS_TO_RENDER_QUEUE
+            - RENDERED_BOARDS_EXCHANGE=RENDERED_BOARDS_EXCHANGE
+            - MESSAGES_EXCHANGE=MESSAGES_EXCHANGE
+            - PORT=5252
+            - REDIS_TOPIC_NAME=fastapi:messages
+            - REDIS_URL=redis://redis:6379
+            - INSTANCE_ID=2
+        depends_on:
+            - rabbitmq
+            - redis
         restart: always
 
     users_service:
-        build: https://github.com/ivanpriz/WSGameUsersService.git
+        build: https://github.com/ivanpriz/WSGameUsersService.git#main
         volumes:
             - .:/app
         environment:
@@ -51,13 +116,14 @@ services:
         restart: always
 
     render_service:
-        build: https://github.com/ivanpriz/WSGameRenderService.git
+        build: https://github.com/ivanpriz/WSGameRenderService.git#main
         volumes:
             - .:/app
         environment:
             - RABBITMQ_URI=amqp://rmq_user:rmq_password@rabbitmq:5672/ws_game
-            - RENDER_BOARD_QUEUE=RENDER_BOARD_QUEUE
-            - MESSAGES_QUEUE=MESSAGES_QUEUE
+            - BOARDS_TO_RENDER_QUEUE=BOARDS_TO_RENDER_QUEUE
+            - RENDERED_BOARDS_EXCHANGE=RENDERED_BOARDS_EXCHANGE
+            - MESSAGES_EXCHANGE=MESSAGES_EXCHANGE
         depends_on:
             - rabbitmq
         restart: always
